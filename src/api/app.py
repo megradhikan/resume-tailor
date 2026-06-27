@@ -12,6 +12,9 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 
 from src.agents import analyzer as analyzer_agent
 from src.agents import rewriter as rewriter_agent
@@ -29,6 +32,8 @@ from src.validation.grounding import validate_rewrite_suggestions
 
 load_dotenv()
 
+limiter = Limiter(key_func=get_remote_address)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -44,6 +49,9 @@ app = FastAPI(
     description="Multi-agent resume tailoring — analysis, rewrites, cover letters, interview prep.",
     lifespan=lifespan,
 )
+
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.add_middleware(
     CORSMiddleware,
@@ -65,7 +73,9 @@ async def health():
 
 
 @app.post("/analyze", response_model=AnalyzeResponse)
+@limiter.limit("10/minute")
 async def analyze(
+    request: Request,
     job_description: str = Form(...),
     resume_text: str = Form(default=""),
     resume_file: UploadFile | None = File(default=None),
@@ -92,7 +102,8 @@ async def analyze(
 
 
 @app.post("/rewrite", response_model=RewriteResponse)
-async def rewrite(req: RewriteRequest):
+@limiter.limit("10/minute")
+async def rewrite(request: Request, req: RewriteRequest):
     """
     Run the Rewrite Agent. Requires analysis from /analyze.
     Returns line-level suggestions with grounding violation flags.
@@ -114,7 +125,8 @@ async def rewrite(req: RewriteRequest):
 
 
 @app.post("/cover-letter", response_model=CoverLetterResponse)
-async def cover_letter(req: CoverLetterRequest):
+@limiter.limit("10/minute")
+async def cover_letter(request: Request, req: CoverLetterRequest):
     """Run the Cover Letter Agent. Requires analysis from /analyze."""
     parsed = parse_resume(text=req.resume_text)
     result = cover_letter_agent.run(
@@ -127,7 +139,8 @@ async def cover_letter(req: CoverLetterRequest):
 
 
 @app.post("/interview-prep", response_model=InterviewPrepResponse)
-async def interview_prep(req: InterviewPrepRequest):
+@limiter.limit("10/minute")
+async def interview_prep(request: Request, req: InterviewPrepRequest):
     """Run the Interview Prep Agent. Requires analysis from /analyze."""
     parsed = parse_resume(text=req.resume_text)
     result = interview_prep_agent.run(
