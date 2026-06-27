@@ -3,3 +3,16 @@ pydantic>=2.0.0
 python-dotenv>=1.0.0
 rich>=13.0.0
 pytest>=8.0.0
+
+# File parsing
+pdfplumber>=0.11.0
+python-docx>=1.1.0
+mammoth>=1.8.0
+
+# Backend API
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+python-multipart>=0.0.9
+
+# Rate limiting
+slowapi>=0.1.9
