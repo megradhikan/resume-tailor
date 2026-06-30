@@ -103,6 +103,33 @@ export async function coverLetter(
   return res.json();
 }
 
+export async function exportResume(
+  resumeText: string,
+  acceptedSuggestions: RewriteSuggestion[]
+): Promise<Blob> {
+  const res = await fetch(`${API_URL}/export/resume`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ resume_text: resumeText, accepted_suggestions: acceptedSuggestions }),
+  });
+  if (!res.ok) throw new Error("Export failed");
+  return res.blob();
+}
+
+export async function exportCoverLetter(
+  coverLetterDraft: string,
+  companyName: string,
+  roleTitle: string
+): Promise<Blob> {
+  const res = await fetch(`${API_URL}/export/cover-letter`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ cover_letter_draft: coverLetterDraft, company_name: companyName, role_title: roleTitle }),
+  });
+  if (!res.ok) throw new Error("Export failed");
+  return res.blob();
+}
+
 export async function interviewPrep(
   resumeText: string,
   analysis: AnalysisResult
