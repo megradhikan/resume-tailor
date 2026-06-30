@@ -9,9 +9,10 @@ import os
 from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
+from pydantic import BaseModel
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
@@ -26,6 +27,7 @@ from src.api.schemas import (
     CoverLetterRequest, CoverLetterResponse,
     InterviewPrepRequest, InterviewPrepResponse,
 )
+from src.export.docx_builder import build_resume_docx, build_cover_letter_docx
 from src.ingestion.parser import parse_resume
 from src.models.analyzer import AnalyzerInput
 from src.validation.grounding import validate_rewrite_suggestions
@@ -148,3 +150,42 @@ async def interview_prep(request: Request, req: InterviewPrepRequest):
         analysis=req.analysis,
     )
     return InterviewPrepResponse(interview_prep=result)
+
+
+# ── Export endpoints ─────────────────────────────────────────────────────────
+
+class ExportResumeRequest(BaseModel):
+    resume_text: str
+    accepted_suggestions: list[dict]
+
+
+class ExportCoverLetterRequest(BaseModel):
+    cover_letter_draft: str
+    company_name: str = ""
+    role_title: str = ""
+
+
+@app.post("/export/resume")
+@limiter.limit("20/minute")
+async def export_resume(request: Request, req: ExportResumeRequest):
+    """Export resume with accepted rewrite suggestions applied as a DOCX file."""
+    docx_bytes = build_resume_docx(req.resume_text, req.accepted_suggestions)
+    return Response(
+        content=docx_bytes,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": "attachment; filename=tailored_resume.docx"},
+    )
+
+
+@app.post("/export/cover-letter")
+@limiter.limit("20/minute")
+async def export_cover_letter(request: Request, req: ExportCoverLetterRequest):
+    """Export cover letter draft as a DOCX file."""
+    docx_bytes = build_cover_letter_docx(
+        req.cover_letter_draft, req.company_name, req.role_title
+    )
+    return Response(
+        content=docx_bytes,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": "attachment; filename=cover_letter.docx"},
+    )
