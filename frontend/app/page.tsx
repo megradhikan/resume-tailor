@@ -6,6 +6,8 @@ import {
   rewrite,
   coverLetter,
   interviewPrep,
+  exportResume,
+  exportCoverLetter,
   AnalysisResult,
   RewriteSuggestion,
   GroundingViolation,
@@ -37,6 +39,44 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState<Tab>("analysis");
   const [loading, setLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [acceptedIndices, setAcceptedIndices] = useState<Set<number>>(new Set());
+  const [exporting, setExporting] = useState(false);
+
+  const downloadBlob = (blob: Blob, filename: string) => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleExportResume = async () => {
+    if (!results.rewrites || !results.resumeText) return;
+    setExporting(true);
+    try {
+      const accepted = results.rewrites.filter((_, i) => acceptedIndices.has(i));
+      const blob = await exportResume(results.resumeText, accepted);
+      downloadBlob(blob, "tailored_resume.docx");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Export failed");
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const handleExportCoverLetter = async () => {
+    if (!results.coverLetterDraft) return;
+    setExporting(true);
+    try {
+      const blob = await exportCoverLetter(results.coverLetterDraft, companyName, roleTitle);
+      downloadBlob(blob, "cover_letter.docx");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Export failed");
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const runAnalysis = async () => {
     if (!jd.trim() || (!resumeText.trim() && !resumeFile)) {
@@ -46,6 +86,7 @@ export default function Home() {
     setError(null);
     setLoading("Analyzing resume against JD…");
     setResults({});
+    setAcceptedIndices(new Set());
     try {
       const data = await analyze(resumeText, jd, resumeFile ?? undefined);
       setResults({ analysis: data.analysis, resumeText, resumeSections: data.resume_sections });
@@ -332,16 +373,37 @@ export default function Home() {
                   {results.rewrites.map((s, i) => (
                     <div
                       key={i}
-                      className={`border rounded-lg p-4 space-y-2 ${
-                        flaggedIndices.has(i) ? "border-red-200 bg-red-50" : "border-gray-200"
+                      className={`border rounded-lg p-4 space-y-2 cursor-pointer transition-colors ${
+                        acceptedIndices.has(i)
+                          ? "border-green-400 bg-green-50"
+                          : flaggedIndices.has(i)
+                          ? "border-red-200 bg-red-50"
+                          : "border-gray-200 hover:border-gray-300"
                       }`}
+                      onClick={() =>
+                        setAcceptedIndices((prev) => {
+                          const next = new Set(prev);
+                          next.has(i) ? next.delete(i) : next.add(i);
+                          return next;
+                        })
+                      }
                     >
                       <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={acceptedIndices.has(i)}
+                          onChange={() => {}}
+                          className="w-4 h-4 accent-green-600"
+                          onClick={(e) => e.stopPropagation()}
+                        />
                         <span className="text-xs font-medium bg-gray-100 text-gray-600 px-2 py-0.5 rounded">
                           {s.section}
                         </span>
                         {flaggedIndices.has(i) && (
                           <span className="text-xs font-medium text-red-600">⚠ flagged</span>
+                        )}
+                        {acceptedIndices.has(i) && (
+                          <span className="text-xs font-medium text-green-600 ml-auto">✓ accepted</span>
                         )}
                       </div>
                       <div className="text-sm">
@@ -352,6 +414,18 @@ export default function Home() {
                       <p className="text-xs text-indigo-500">Grounded in: {s.grounded_in}</p>
                     </div>
                   ))}
+                  <div className="pt-2 flex items-center gap-3">
+                    <button
+                      onClick={handleExportResume}
+                      disabled={exporting || acceptedIndices.size === 0}
+                      className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                    >
+                      {exporting ? "Exporting…" : `Export Resume DOCX (${acceptedIndices.size} accepted)`}
+                    </button>
+                    {acceptedIndices.size === 0 && (
+                      <p className="text-xs text-gray-400">Check suggestions above to accept them</p>
+                    )}
+                  </div>
                 </div>
               )}
 
@@ -361,6 +435,13 @@ export default function Home() {
                   <div className="whitespace-pre-wrap text-sm text-gray-800 leading-relaxed border border-gray-200 rounded-lg p-4 bg-gray-50">
                     {results.coverLetterDraft}
                   </div>
+                  <button
+                    onClick={handleExportCoverLetter}
+                    disabled={exporting}
+                    className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {exporting ? "Exporting…" : "Download Cover Letter DOCX"}
+                  </button>
                   {results.coverLetterGrounding && results.coverLetterGrounding.length > 0 && (
                     <div>
                       <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
