@@ -14,6 +14,8 @@ import {
   InterviewQuestion,
   ParagraphGrounding,
 } from "@/lib/api";
+import { saveApplication, TrackedApplication } from "@/lib/tracker";
+import ApplicationTracker from "@/app/components/ApplicationTracker";
 
 type Tab = "analysis" | "rewrites" | "cover-letter" | "interview";
 
@@ -41,6 +43,7 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [acceptedIndices, setAcceptedIndices] = useState<Set<number>>(new Set());
   const [exporting, setExporting] = useState(false);
+  const [trackerTick, setTrackerTick] = useState(0);
 
   const downloadBlob = (blob: Blob, filename: string) => {
     const url = URL.createObjectURL(blob);
@@ -109,11 +112,33 @@ export default function Home() {
         coverLetterGrounding: clData?.cover_letter.paragraph_grounding,
         interviewQuestions: ipData.interview_prep.questions,
       }));
+
+      saveApplication({
+        company: companyName,
+        role: roleTitle,
+        ats_score: data.analysis.ats_score,
+        seniority_match: data.analysis.seniority_match,
+        jd_summary: data.analysis.jd_summary,
+        resume_text: resumeText,
+        job_description: jd,
+      });
+      setTrackerTick((t) => t + 1);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Something went wrong.");
     } finally {
       setLoading(null);
     }
+  };
+
+  const handleReload = (app: TrackedApplication) => {
+    setResumeText(app.resume_text);
+    setResumeFile(null);
+    setJd(app.job_description);
+    setCompanyName(app.company);
+    setRoleTitle(app.role);
+    setResults({});
+    setAcceptedIndices(new Set());
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const tabs: { id: Tab; label: string; available: boolean }[] = [
@@ -516,6 +541,8 @@ export default function Home() {
             </div>
           </div>
         )}
+
+        <ApplicationTracker onReload={handleReload} refreshTick={trackerTick} />
       </div>
     </main>
   );
