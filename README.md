@@ -37,9 +37,12 @@ cd resume-tailor
 
 # Backend
 python3 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
+pip install -r requirements-dev.txt   # prod deps + pytest
 cp .env.example .env
 # Add GROQ_API_KEY to .env (free at console.groq.com)
+
+# Run tests
+pytest tests/
 
 # Start backend
 uvicorn src.api.app:app --reload
@@ -49,6 +52,15 @@ cd frontend
 cp .env.local.example .env.local
 npm install && npm run dev
 # → http://localhost:3000
+```
+
+### Full-stack with Docker Compose
+
+```bash
+cp .env.example .env          # add GROQ_API_KEY
+docker compose up --build
+# backend → http://localhost:8000
+# frontend → http://localhost:3000
 ```
 
 ## CLI (v0, still works)
