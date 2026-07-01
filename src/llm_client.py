@@ -60,6 +60,7 @@ def call_llm(prompt: str, response_schema: type[T]) -> T:
                 ],
                 response_format={"type": "json_object"},
                 temperature=0,
+                timeout=30.0,
             )
             raw = response.choices[0].message.content
             data = json.loads(raw)
@@ -80,7 +81,6 @@ def call_llm(prompt: str, response_schema: type[T]) -> T:
             ) from e
 
         except Exception as e:
-            # Handle rate limits with exponential backoff
             err_str = str(e).lower()
             if "429" in err_str or "rate limit" in err_str:
                 if attempt < _MAX_RETRIES:
@@ -88,6 +88,8 @@ def call_llm(prompt: str, response_schema: type[T]) -> T:
                     delay *= 2
                     last_error = e
                     continue
-            raise RuntimeError(f"LLM provider error: {e}") from e
+            # Sanitize provider errors — never propagate raw messages that
+            # may contain the API key prefix or internal provider details
+            raise RuntimeError("LLM provider error — check server logs for details.") from e
 
     raise RuntimeError(f"LLM call failed after {_MAX_RETRIES} attempts: {last_error}")
