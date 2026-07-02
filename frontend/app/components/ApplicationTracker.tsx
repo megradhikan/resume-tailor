@@ -35,18 +35,18 @@ interface Props {
 export default function ApplicationTracker({ onReload, refreshTick }: Props) {
   const [apps, setApps] = useState<TrackedApplication[]>([]);
 
-  const refresh = () => setApps(getApplications());
+  const refresh = async () => setApps(await getApplications());
 
   useEffect(() => { refresh(); }, [refreshTick]);
 
-  const handleStatus = (id: string, status: ApplicationStatus) => {
-    updateStatus(id, status);
+  const handleStatus = async (id: string, status: ApplicationStatus) => {
+    await updateStatus(id, status);
     refresh();
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (confirm("Remove this application from the tracker?")) {
-      deleteApplication(id);
+      await deleteApplication(id);
       refresh();
     }
   };

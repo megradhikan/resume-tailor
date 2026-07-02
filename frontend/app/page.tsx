@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   analyze,
   rewrite,
@@ -14,8 +14,10 @@ import {
   InterviewQuestion,
   ParagraphGrounding,
 } from "@/lib/api";
-import { saveApplication, TrackedApplication } from "@/lib/tracker";
+import { saveApplication, saveRewriteDecisions, TrackedApplication } from "@/lib/tracker";
 import ApplicationTracker from "@/app/components/ApplicationTracker";
+import { createClient } from "@/lib/supabase";
+import { useRouter } from "next/navigation";
 
 type Tab = "analysis" | "rewrites" | "cover-letter" | "interview";
 
@@ -31,6 +33,26 @@ interface Results {
 }
 
 export default function Home() {
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+  const supabase = createClient();
+  const router = useRouter();
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      if (!data.user) {
+        router.push("/auth");
+        return;
+      }
+      setUserEmail(data.user.email ?? null);
+    });
+  }, []);
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    router.push("/auth");
+    router.refresh();
+  };
+
   const [resumeText, setResumeText] = useState("");
   const [resumeFile, setResumeFile] = useState<File | null>(null);
   const [jd, setJd] = useState("");
@@ -113,15 +135,28 @@ export default function Home() {
         interviewQuestions: ipData.interview_prep.questions,
       }));
 
-      saveApplication({
+      const saved = await saveApplication({
         company: companyName,
         role: roleTitle,
         ats_score: data.analysis.ats_score,
         seniority_match: data.analysis.seniority_match,
         jd_summary: data.analysis.jd_summary,
-        resume_text: resumeText,
+        resume_text: data.resume_text,
         job_description: jd,
       });
+
+      // Persist rewrite decisions if the user already had accepted some
+      if (saved && rwData.rewrites.suggestions.length > 0) {
+        const decisions = rwData.rewrites.suggestions.map((s, i) => ({
+          suggestion_index: i,
+          section: s.section,
+          original_line: s.original_line,
+          suggested_line: s.suggested_line,
+          accepted: acceptedIndices.has(i),
+        }));
+        await saveRewriteDecisions(saved.id, decisions);
+      }
+
       setTrackerTick((t) => t + 1);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Something went wrong.");
@@ -165,16 +200,34 @@ export default function Home() {
     <>
       {/* Site header */}
       <header style={{ backgroundColor: "var(--color-header)", borderBottom: "1px solid oklch(0.22 0.01 245)" }}>
-        <div className="max-w-3xl mx-auto px-6 py-3 flex items-baseline gap-3">
-          <span
-            className="text-sm font-semibold tracking-tight"
-            style={{ color: "var(--color-surface)" }}
-          >
-            Resume Tailor
-          </span>
-          <span className="text-sm hidden sm:inline" style={{ color: "var(--color-header-dim)" }}>
-            Analysis grounded only in your resume
-          </span>
+        <div className="max-w-3xl mx-auto px-6 py-3 flex items-center justify-between">
+          <div className="flex items-baseline gap-3">
+            <span
+              className="text-sm font-semibold tracking-tight"
+              style={{ color: "var(--color-surface)" }}
+            >
+              Resume Tailor
+            </span>
+            <span className="text-sm hidden sm:inline" style={{ color: "var(--color-header-dim)" }}>
+              Analysis grounded only in your resume
+            </span>
+          </div>
+          {userEmail && (
+            <div className="flex items-center gap-4">
+              <span className="text-xs hidden sm:inline" style={{ color: "var(--color-header-dim)" }}>
+                {userEmail}
+              </span>
+              <button
+                onClick={handleSignOut}
+                className="text-xs font-semibold transition-colors"
+                style={{ color: "var(--color-header-dim)" }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "var(--color-surface)"; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "var(--color-header-dim)"; }}
+              >
+                Sign out
+              </button>
+            </div>
+          )}
         </div>
       </header>
 

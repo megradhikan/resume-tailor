@@ -8,3 +8,5 @@ venv/
 dist/
 *.egg-info/
 .DS_Store
+.env.local
+.env.*.local
