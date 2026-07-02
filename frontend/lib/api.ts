@@ -72,7 +72,8 @@ export async function analyze(
   const res = await fetch(`${API_URL}/analyze`, { method: "POST", body: form });
   if (!res.ok) throw new Error((await res.json()).detail ?? "Analysis failed");
   const data = await res.json();
-  return { ...data, resume_text: resumeText };
+  // Use server-parsed text (correct for file uploads); fall back to textarea value
+  return { ...data, resume_text: data.resume_text || resumeText };
 }
 
 export async function rewrite(

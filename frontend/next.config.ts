@@ -10,17 +10,23 @@ try {
   // fallback: keep as-is
 }
 
+const isDev = process.env.NODE_ENV !== "production";
+
 const securityHeaders = [
   {
     key: "Content-Security-Policy",
     value: [
       "default-src 'self'",
-      `connect-src 'self' ${apiOrigin}`,     // allow fetch to the backend
-      "script-src 'self' 'unsafe-inline'",   // Next.js requires unsafe-inline for hydration
-      "style-src 'self' 'unsafe-inline'",    // Tailwind inline styles
+      `connect-src 'self' ${apiOrigin} ws://localhost:3000`,  // ws: for HMR in dev
+      // React dev mode requires unsafe-eval for stack-frame reconstruction;
+      // production builds never use eval.
+      isDev
+        ? "script-src 'self' 'unsafe-inline' 'unsafe-eval'"
+        : "script-src 'self' 'unsafe-inline'",
+      "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob:",
       "font-src 'self'",
-      "frame-ancestors 'none'",              // equivalent to X-Frame-Options DENY
+      "frame-ancestors 'none'",
       "object-src 'none'",
       "base-uri 'self'",
     ].join("; "),
