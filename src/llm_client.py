@@ -42,10 +42,10 @@ def call_llm(prompt: str, response_schema: type[T]) -> T:
     client = _get_client()
     schema_json = json.dumps(response_schema.model_json_schema(), indent=2)
     system_message = (
-        "You are a precise assistant that always responds with valid JSON "
+        "You are a precise assistant. Always respond with valid json "
         "matching the exact schema provided. Never add extra keys. "
         "Never truncate or omit required fields.\n\n"
-        f"Respond ONLY with a JSON object matching this schema:\n{schema_json}"
+        f"Respond ONLY with a json object matching this schema:\n{schema_json}"
     )
 
     delay = _RETRY_DELAY
