@@ -3,7 +3,7 @@
  * Each entry is one (resume, JD) run: company, role, ATS score, date, status.
  */
 
-export type ApplicationStatus = "saved" | "applied" | "interviewing" | "rejected" | "offer";
+export type ApplicationStatus = "saved" | "applied" | "rejected";
 
 export interface TrackedApplication {
   id: string;
