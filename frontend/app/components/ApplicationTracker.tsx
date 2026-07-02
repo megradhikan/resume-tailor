@@ -9,16 +9,22 @@ import {
   ApplicationStatus,
 } from "@/lib/tracker";
 
-const STATUS_OPTIONS: { value: ApplicationStatus; label: string; color: string }[] = [
-  { value: "saved",        label: "Saved",        color: "bg-gray-100 text-gray-600" },
-  { value: "applied",      label: "Applied",      color: "bg-blue-100 text-blue-700" },
-  { value: "interviewing", label: "Interviewing", color: "bg-purple-100 text-purple-700" },
-  { value: "rejected",     label: "Rejected",     color: "bg-red-100 text-red-600" },
-  { value: "offer",        label: "Offer",        color: "bg-green-100 text-green-700" },
+const STATUS_OPTIONS: { value: ApplicationStatus; label: string }[] = [
+  { value: "saved",        label: "Saved" },
+  { value: "applied",      label: "Applied" },
+  { value: "interviewing", label: "Interviewing" },
+  { value: "rejected",     label: "Rejected" },
+  { value: "offer",        label: "Offer" },
 ];
 
-function statusColor(s: ApplicationStatus) {
-  return STATUS_OPTIONS.find((o) => o.value === s)?.color ?? "bg-gray-100 text-gray-600";
+function statusStyle(s: ApplicationStatus): { bg: string; color: string } {
+  switch (s) {
+    case "saved":        return { bg: "var(--color-surface-2)", color: "var(--color-ink-muted)" };
+    case "applied":      return { bg: "var(--color-accent-subtle)", color: "var(--color-accent-text)" };
+    case "interviewing": return { bg: "oklch(0.95 0.03 290)", color: "oklch(0.35 0.10 290)" };
+    case "rejected":     return { bg: "var(--color-danger-bg)", color: "var(--color-danger-text)" };
+    case "offer":        return { bg: "var(--color-success-bg)", color: "var(--color-success-text)" };
+  }
 }
 
 interface Props {
@@ -52,97 +58,163 @@ export default function ApplicationTracker({ onReload, refreshTick }: Props) {
   const interviewCount = apps.filter((a) => a.status === "interviewing").length;
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mt-6">
-      <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+    <div
+      className="rounded-xl overflow-hidden"
+      style={{
+        backgroundColor: "var(--color-surface)",
+        border: "1px solid var(--color-border)",
+      }}
+    >
+      {/* Header */}
+      <div
+        className="px-6 py-4 flex items-center justify-between"
+        style={{ borderBottom: "1px solid var(--color-border)" }}
+      >
         <div>
-          <h2 className="text-base font-semibold text-gray-900">Application Tracker</h2>
-          <p className="text-xs text-gray-400 mt-0.5">{apps.length} application{apps.length !== 1 ? "s" : ""}</p>
+          <h2 className="text-sm font-semibold" style={{ color: "var(--color-ink)" }}>
+            Application Tracker
+          </h2>
+          <p className="text-xs mt-0.5" style={{ color: "var(--color-ink-faint)" }}>
+            {apps.length} application{apps.length !== 1 ? "s" : ""} saved locally
+          </p>
         </div>
-        <div className="flex gap-4 text-center">
-          <div>
-            <div className="text-lg font-bold text-indigo-600">{avgScore}</div>
-            <div className="text-xs text-gray-400">avg ATS</div>
+        <div className="flex gap-6">
+          <div className="text-center">
+            <div className="text-base font-bold tabular-nums" style={{ color: "var(--color-ink)" }}>
+              {avgScore}
+            </div>
+            <div className="text-xs" style={{ color: "var(--color-ink-faint)" }}>avg ATS</div>
           </div>
-          <div>
-            <div className="text-lg font-bold text-purple-600">{interviewCount}</div>
-            <div className="text-xs text-gray-400">interviews</div>
+          <div className="text-center">
+            <div className="text-base font-bold tabular-nums" style={{ color: "oklch(0.35 0.10 290)" }}>
+              {interviewCount}
+            </div>
+            <div className="text-xs" style={{ color: "var(--color-ink-faint)" }}>interviews</div>
           </div>
-          <div>
-            <div className="text-lg font-bold text-green-600">{offerCount}</div>
-            <div className="text-xs text-gray-400">offers</div>
+          <div className="text-center">
+            <div className="text-base font-bold tabular-nums" style={{ color: "var(--color-success)" }}>
+              {offerCount}
+            </div>
+            <div className="text-xs" style={{ color: "var(--color-ink-faint)" }}>offers</div>
           </div>
         </div>
       </div>
 
+      {/* Table */}
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-gray-100 text-xs text-gray-400 uppercase tracking-wide">
-              <th className="text-left px-6 py-3 font-medium">Company / Role</th>
-              <th className="text-left px-6 py-3 font-medium">Date</th>
-              <th className="text-left px-6 py-3 font-medium">ATS</th>
-              <th className="text-left px-6 py-3 font-medium">Fit</th>
-              <th className="text-left px-6 py-3 font-medium">Status</th>
-              <th className="px-6 py-3" />
+            <tr style={{ borderBottom: "1px solid var(--color-border)" }}>
+              {["Company / Role", "Date", "ATS", "Fit", "Status", ""].map((h) => (
+                <th
+                  key={h}
+                  className={`py-2.5 text-xs font-semibold ${h === "" ? "px-4" : "px-6"} ${h === "" ? "" : "text-left"}`}
+                  style={{ color: "var(--color-ink-faint)" }}
+                >
+                  {h}
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody>
-            {apps.map((app) => (
-              <tr key={app.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
-                <td className="px-6 py-3">
-                  <div className="font-medium text-gray-900">{app.company || "—"}</div>
-                  <div className="text-xs text-gray-500">{app.role || "—"}</div>
-                </td>
-                <td className="px-6 py-3 text-gray-500 whitespace-nowrap">
-                  {new Date(app.date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                </td>
-                <td className="px-6 py-3">
-                  <span className={`font-semibold ${app.ats_score >= 70 ? "text-green-600" : app.ats_score >= 50 ? "text-yellow-500" : "text-red-500"}`}>
-                    {app.ats_score.toFixed(1)}
-                  </span>
-                </td>
-                <td className="px-6 py-3">
-                  <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${
-                    app.seniority_match === "match" ? "bg-green-100 text-green-700" :
-                    app.seniority_match === "under" ? "bg-yellow-100 text-yellow-700" :
-                    "bg-blue-100 text-blue-700"
-                  }`}>
-                    {app.seniority_match}
-                  </span>
-                </td>
-                <td className="px-6 py-3">
-                  <select
-                    value={app.status}
-                    onChange={(e) => handleStatus(app.id, e.target.value as ApplicationStatus)}
-                    className={`text-xs font-medium px-2 py-1 rounded border-0 cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-300 ${statusColor(app.status)}`}
-                  >
-                    {STATUS_OPTIONS.map((o) => (
-                      <option key={o.value} value={o.value}>{o.label}</option>
-                    ))}
-                  </select>
-                </td>
-                <td className="px-6 py-3">
-                  <div className="flex gap-2 justify-end">
-                    {onReload && (
-                      <button
-                        onClick={() => onReload(app)}
-                        className="text-xs text-indigo-600 hover:text-indigo-800 font-medium"
-                        title="Reload this application"
-                      >
-                        Reload
-                      </button>
-                    )}
-                    <button
-                      onClick={() => handleDelete(app.id)}
-                      className="text-xs text-gray-400 hover:text-red-500 font-medium"
-                      title="Remove"
+            {apps.map((app) => {
+              const st = statusStyle(app.status);
+              const atsColor =
+                app.ats_score >= 70
+                  ? "var(--color-success)"
+                  : app.ats_score >= 50
+                  ? "var(--color-warning)"
+                  : "var(--color-danger)";
+              return (
+                <tr
+                  key={app.id}
+                  className="transition-colors"
+                  style={{ borderBottom: "1px solid var(--color-border)" }}
+                  onMouseEnter={(e) => {
+                    (e.currentTarget as HTMLElement).style.backgroundColor = "var(--color-surface-2)";
+                  }}
+                  onMouseLeave={(e) => {
+                    (e.currentTarget as HTMLElement).style.backgroundColor = "";
+                  }}
+                >
+                  <td className="px-6 py-3">
+                    <div className="font-semibold" style={{ color: "var(--color-ink)" }}>
+                      {app.company || <span style={{ color: "var(--color-ink-faint)" }}>—</span>}
+                    </div>
+                    <div className="text-xs mt-0.5" style={{ color: "var(--color-ink-muted)" }}>
+                      {app.role || <span style={{ color: "var(--color-ink-faint)" }}>—</span>}
+                    </div>
+                  </td>
+                  <td className="px-6 py-3 text-xs whitespace-nowrap" style={{ color: "var(--color-ink-muted)" }}>
+                    {new Date(app.date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                  </td>
+                  <td className="px-6 py-3">
+                    <span className="text-sm font-bold tabular-nums" style={{ color: atsColor }}>
+                      {app.ats_score.toFixed(1)}
+                    </span>
+                  </td>
+                  <td className="px-6 py-3">
+                    <span
+                      className="text-xs font-semibold px-2 py-0.5 rounded"
+                      style={
+                        app.seniority_match === "match"
+                          ? { backgroundColor: "var(--color-success-bg)", color: "var(--color-success-text)" }
+                          : app.seniority_match === "under"
+                          ? { backgroundColor: "var(--color-warning-bg)", color: "var(--color-warning-text)" }
+                          : { backgroundColor: "var(--color-accent-subtle)", color: "var(--color-accent-text)" }
+                      }
                     >
-                      ✕
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
+                      {app.seniority_match}
+                    </span>
+                  </td>
+                  <td className="px-6 py-3">
+                    <select
+                      value={app.status}
+                      onChange={(e) => handleStatus(app.id, e.target.value as ApplicationStatus)}
+                      className="text-xs font-semibold px-2.5 py-1 rounded-md cursor-pointer transition-colors"
+                      style={{
+                        backgroundColor: st.bg,
+                        color: st.color,
+                        border: "none",
+                        outline: "none",
+                        appearance: "none",
+                        WebkitAppearance: "none",
+                      }}
+                    >
+                      {STATUS_OPTIONS.map((o) => (
+                        <option key={o.value} value={o.value}>{o.label}</option>
+                      ))}
+                    </select>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-3 justify-end">
+                      {onReload && (
+                        <button
+                          onClick={() => onReload(app)}
+                          className="text-xs font-semibold transition-colors"
+                          style={{ color: "var(--color-accent)" }}
+                          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "var(--color-accent-hover)"; }}
+                          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "var(--color-accent)"; }}
+                          title="Load this application into the form"
+                        >
+                          Load
+                        </button>
+                      )}
+                      <button
+                        onClick={() => handleDelete(app.id)}
+                        className="text-xs font-semibold transition-colors"
+                        style={{ color: "var(--color-ink-faint)" }}
+                        onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "var(--color-danger)"; }}
+                        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "var(--color-ink-faint)"; }}
+                        title="Remove from tracker"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

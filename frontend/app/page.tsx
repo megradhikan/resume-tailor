@@ -83,17 +83,15 @@ export default function Home() {
 
   const runAnalysis = async () => {
     if (!jd.trim() || (!resumeText.trim() && !resumeFile)) {
-      setError("Please provide a resume and job description.");
+      setError("Provide a resume and job description to continue.");
       return;
     }
     setError(null);
-    setLoading("Analyzing resume against JD…");
+    setLoading("Analyzing resume against job description…");
     setResults({});
     setAcceptedIndices(new Set());
     try {
       const data = await analyze(resumeText, jd, resumeFile ?? undefined);
-      // Use data.resume_text — for file uploads this is the server-parsed text,
-      // for text paste it equals the textarea value.
       setResults({ analysis: data.analysis, resumeText: data.resume_text, resumeSections: data.resume_sections });
       setActiveTab("analysis");
 
@@ -145,407 +143,754 @@ export default function Home() {
 
   const tabs: { id: Tab; label: string; available: boolean }[] = [
     { id: "analysis", label: "Analysis", available: !!results.analysis },
-    { id: "rewrites", label: `Rewrites${results.groundingViolations?.length ? " ⚠" : ""}`, available: !!results.rewrites },
+    {
+      id: "rewrites",
+      label: results.groundingViolations?.length ? "Rewrites (warnings)" : "Rewrites",
+      available: !!results.rewrites,
+    },
     { id: "cover-letter", label: "Cover Letter", available: !!results.coverLetterDraft },
     { id: "interview", label: "Interview Prep", available: !!results.interviewQuestions },
   ];
 
   const flaggedIndices = new Set(results.groundingViolations?.map((v) => v.suggestion_index) ?? []);
 
-  return (
-    <main className="min-h-screen bg-gray-50">
-      <div className="max-w-4xl mx-auto px-4 py-10">
-        <h1 className="text-3xl font-bold text-gray-900 mb-1">Resume Tailor</h1>
-        <p className="text-gray-500 mb-8 text-sm">
-          Multi-agent resume analysis — no experience is ever fabricated.
-        </p>
+  const scoreColor =
+    (results.analysis?.ats_score ?? 0) >= 70
+      ? "var(--color-success)"
+      : (results.analysis?.ats_score ?? 0) >= 50
+      ? "var(--color-warning)"
+      : "var(--color-danger)";
 
-        {/* Input form */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6 space-y-5">
-          {/* Resume input */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Resume</label>
-            <div className="flex gap-3 mb-2">
-              <label className="cursor-pointer px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
-                Upload PDF / DOCX
-                <input
-                  type="file"
-                  accept=".pdf,.docx,.doc"
-                  className="hidden"
-                  onChange={(e) => {
-                    const f = e.target.files?.[0] ?? null;
-                    setResumeFile(f);
-                    if (f) setResumeText("");
-                  }}
-                />
+  return (
+    <>
+      {/* Site header */}
+      <header style={{ backgroundColor: "var(--color-header)", borderBottom: "1px solid oklch(0.22 0.01 245)" }}>
+        <div className="max-w-3xl mx-auto px-6 py-3 flex items-baseline gap-3">
+          <span
+            className="text-sm font-semibold tracking-tight"
+            style={{ color: "var(--color-surface)" }}
+          >
+            Resume Tailor
+          </span>
+          <span className="text-sm hidden sm:inline" style={{ color: "var(--color-header-dim)" }}>
+            Analysis grounded only in your resume
+          </span>
+        </div>
+      </header>
+
+      <main className="flex-1" style={{ backgroundColor: "var(--color-bg)" }}>
+        <div className="max-w-3xl mx-auto px-6 py-8 space-y-5">
+
+          {/* Input form */}
+          <div
+            className="rounded-xl p-6 space-y-5"
+            style={{
+              backgroundColor: "var(--color-surface)",
+              border: "1px solid var(--color-border)",
+            }}
+          >
+            {/* Resume */}
+            <div>
+              <label
+                className="block text-sm font-semibold mb-2"
+                style={{ color: "var(--color-ink)" }}
+              >
+                Resume
               </label>
-              {resumeFile && (
-                <span className="text-sm text-green-600 self-center">
-                  {resumeFile.name}
-                  <button className="ml-2 text-gray-400 hover:text-gray-600" onClick={() => setResumeFile(null)}>✕</button>
-                </span>
+              <div className="flex items-center gap-3 mb-3">
+                <label
+                  className="cursor-pointer text-sm font-medium px-3 py-1.5 rounded-md transition-colors"
+                  style={{
+                    border: "1px solid var(--color-border-strong)",
+                    color: "var(--color-ink-muted)",
+                    backgroundColor: "var(--color-surface-2)",
+                  }}
+                  onMouseEnter={(e) => {
+                    (e.currentTarget as HTMLElement).style.color = "var(--color-ink)";
+                  }}
+                  onMouseLeave={(e) => {
+                    (e.currentTarget as HTMLElement).style.color = "var(--color-ink-muted)";
+                  }}
+                >
+                  Upload PDF or DOCX
+                  <input
+                    type="file"
+                    accept=".pdf,.docx,.doc"
+                    className="sr-only"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0] ?? null;
+                      setResumeFile(f);
+                      if (f) setResumeText("");
+                    }}
+                  />
+                </label>
+                {resumeFile && (
+                  <span
+                    className="text-sm flex items-center gap-1.5"
+                    style={{ color: "var(--color-success)" }}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+                      <path d="M2 7l3.5 3.5L12 3" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                    {resumeFile.name}
+                    <button
+                      onClick={() => setResumeFile(null)}
+                      className="transition-colors"
+                      style={{ color: "var(--color-ink-faint)" }}
+                      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "var(--color-ink-muted)"; }}
+                      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "var(--color-ink-faint)"; }}
+                      aria-label="Remove file"
+                    >
+                      ×
+                    </button>
+                  </span>
+                )}
+              </div>
+              {!resumeFile && (
+                <textarea
+                  rows={6}
+                  placeholder="Or paste your resume as plain text…"
+                  className="w-full text-sm rounded-lg px-3 py-2.5 resize-y transition-colors"
+                  style={{
+                    fontFamily: "var(--font-mono)",
+                    border: "1px solid var(--color-border)",
+                    color: "var(--color-ink)",
+                    backgroundColor: "var(--color-surface-2)",
+                    outline: "none",
+                  }}
+                  onFocus={(e) => { e.currentTarget.style.borderColor = "var(--color-accent)"; e.currentTarget.style.boxShadow = "0 0 0 3px var(--color-accent-subtle)"; }}
+                  onBlur={(e) => { e.currentTarget.style.borderColor = "var(--color-border)"; e.currentTarget.style.boxShadow = "none"; }}
+                  value={resumeText}
+                  onChange={(e) => setResumeText(e.target.value)}
+                />
               )}
             </div>
-            {!resumeFile && (
+
+            {/* Job description */}
+            <div>
+              <label
+                className="block text-sm font-semibold mb-2"
+                style={{ color: "var(--color-ink)" }}
+              >
+                Job Description
+              </label>
               <textarea
                 rows={6}
-                placeholder="Or paste plain text resume here…"
-                className="w-full text-sm border border-gray-300 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-y font-mono"
-                value={resumeText}
-                onChange={(e) => setResumeText(e.target.value)}
+                placeholder="Paste the full job description…"
+                className="w-full text-sm rounded-lg px-3 py-2.5 resize-y transition-colors"
+                style={{
+                  border: "1px solid var(--color-border)",
+                  color: "var(--color-ink)",
+                  backgroundColor: "var(--color-surface-2)",
+                  outline: "none",
+                }}
+                onFocus={(e) => { e.currentTarget.style.borderColor = "var(--color-accent)"; e.currentTarget.style.boxShadow = "0 0 0 3px var(--color-accent-subtle)"; }}
+                onBlur={(e) => { e.currentTarget.style.borderColor = "var(--color-border)"; e.currentTarget.style.boxShadow = "none"; }}
+                value={jd}
+                onChange={(e) => setJd(e.target.value)}
               />
+            </div>
+
+            {/* Company + role */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-semibold mb-1.5" style={{ color: "var(--color-ink)" }}>
+                  Company
+                  <span className="font-normal ml-1.5 text-xs" style={{ color: "var(--color-ink-faint)" }}>
+                    for cover letter
+                  </span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="Acme Corp"
+                  className="w-full text-sm rounded-lg px-3 py-2 transition-colors"
+                  style={{
+                    border: "1px solid var(--color-border)",
+                    color: "var(--color-ink)",
+                    backgroundColor: "var(--color-surface-2)",
+                    outline: "none",
+                  }}
+                  onFocus={(e) => { e.currentTarget.style.borderColor = "var(--color-accent)"; e.currentTarget.style.boxShadow = "0 0 0 3px var(--color-accent-subtle)"; }}
+                  onBlur={(e) => { e.currentTarget.style.borderColor = "var(--color-border)"; e.currentTarget.style.boxShadow = "none"; }}
+                  value={companyName}
+                  onChange={(e) => setCompanyName(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold mb-1.5" style={{ color: "var(--color-ink)" }}>
+                  Role
+                  <span className="font-normal ml-1.5 text-xs" style={{ color: "var(--color-ink-faint)" }}>
+                    for cover letter
+                  </span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="Software Engineer"
+                  className="w-full text-sm rounded-lg px-3 py-2 transition-colors"
+                  style={{
+                    border: "1px solid var(--color-border)",
+                    color: "var(--color-ink)",
+                    backgroundColor: "var(--color-surface-2)",
+                    outline: "none",
+                  }}
+                  onFocus={(e) => { e.currentTarget.style.borderColor = "var(--color-accent)"; e.currentTarget.style.boxShadow = "0 0 0 3px var(--color-accent-subtle)"; }}
+                  onBlur={(e) => { e.currentTarget.style.borderColor = "var(--color-border)"; e.currentTarget.style.boxShadow = "none"; }}
+                  value={roleTitle}
+                  onChange={(e) => setRoleTitle(e.target.value)}
+                />
+              </div>
+            </div>
+
+            {/* Error */}
+            {error && (
+              <div
+                className="text-sm rounded-lg px-4 py-3"
+                style={{
+                  backgroundColor: "var(--color-danger-bg)",
+                  color: "var(--color-danger-text)",
+                  border: "1px solid oklch(0.85 0.08 25)",
+                }}
+              >
+                {error}
+              </div>
             )}
-          </div>
 
-          {/* JD */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Job Description</label>
-            <textarea
-              rows={6}
-              placeholder="Paste the full job description…"
-              className="w-full text-sm border border-gray-300 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-y"
-              value={jd}
-              onChange={(e) => setJd(e.target.value)}
-            />
-          </div>
-
-          {/* Company / role for cover letter */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Company name <span className="text-gray-400">(for cover letter)</span>
-              </label>
-              <input
-                type="text"
-                placeholder="Acme Corp"
-                className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                value={companyName}
-                onChange={(e) => setCompanyName(e.target.value)}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Role title <span className="text-gray-400">(for cover letter)</span>
-              </label>
-              <input
-                type="text"
-                placeholder="Software Engineer"
-                className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                value={roleTitle}
-                onChange={(e) => setRoleTitle(e.target.value)}
-              />
-            </div>
-          </div>
-
-          {error && <p className="text-sm text-red-600 bg-red-50 rounded-lg p-3">{error}</p>}
-
-          <button
-            onClick={runAnalysis}
-            disabled={!!loading}
-            className="w-full bg-indigo-600 text-white py-2.5 rounded-lg font-medium hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            {loading ?? "Analyze & Tailor"}
-          </button>
-        </div>
-
-        {/* Results */}
-        {results.analysis && (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-            {/* Tabs */}
-            <div className="flex border-b border-gray-200">
-              {tabs.map((t) => (
-                <button
-                  key={t.id}
-                  onClick={() => t.available && setActiveTab(t.id)}
-                  className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
-                    activeTab === t.id
-                      ? "border-indigo-600 text-indigo-600"
-                      : t.available
-                      ? "border-transparent text-gray-500 hover:text-gray-700"
-                      : "border-transparent text-gray-300 cursor-not-allowed"
-                  }`}
-                >
-                  {t.label}
-                </button>
-              ))}
-              {loading && (
-                <span className="ml-auto self-center pr-4 text-xs text-gray-400 animate-pulse">
+            {/* Submit */}
+            <button
+              onClick={runAnalysis}
+              disabled={!!loading}
+              className="w-full py-2.5 text-sm font-semibold rounded-lg transition-colors"
+              style={{
+                backgroundColor: loading ? "var(--color-accent-subtle)" : "var(--color-accent)",
+                color: loading ? "var(--color-accent-text)" : "white",
+                cursor: loading ? "not-allowed" : "pointer",
+              }}
+              onMouseEnter={(e) => {
+                if (!loading) (e.currentTarget as HTMLElement).style.backgroundColor = "var(--color-accent-hover)";
+              }}
+              onMouseLeave={(e) => {
+                if (!loading) (e.currentTarget as HTMLElement).style.backgroundColor = "var(--color-accent)";
+              }}
+            >
+              {loading ? (
+                <span className="flex items-center justify-center gap-2">
+                  <svg
+                    className="animate-spin"
+                    width="14"
+                    height="14"
+                    viewBox="0 0 14 14"
+                    fill="none"
+                    aria-hidden="true"
+                  >
+                    <circle cx="7" cy="7" r="5.5" stroke="currentColor" strokeOpacity="0.25" strokeWidth="2" />
+                    <path d="M7 1.5a5.5 5.5 0 0 1 5.5 5.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                  </svg>
                   {loading}
                 </span>
+              ) : (
+                "Analyze and tailor resume"
               )}
-            </div>
+            </button>
+          </div>
 
-            <div className="p-6">
-              {/* Analysis tab */}
-              {activeTab === "analysis" && results.analysis && (
-                <div className="space-y-6">
-                  <div className="flex items-center gap-4">
-                    <div
-                      className={`text-4xl font-bold ${
-                        results.analysis.ats_score >= 70
-                          ? "text-green-600"
-                          : results.analysis.ats_score >= 50
-                          ? "text-yellow-500"
-                          : "text-red-500"
-                      }`}
-                    >
-                      {results.analysis.ats_score.toFixed(1)}
-                    </div>
-                    <div>
-                      <div className="text-sm font-medium text-gray-700">ATS Score / 100</div>
-                      <div className="text-xs text-gray-400">Required keywords weighted 2×</div>
-                    </div>
-                    <div className="ml-auto">
-                      <span
-                        className={`text-xs font-medium px-2 py-1 rounded-full ${
-                          results.analysis.seniority_match === "match"
-                            ? "bg-green-100 text-green-700"
-                            : results.analysis.seniority_match === "under"
-                            ? "bg-yellow-100 text-yellow-700"
-                            : "bg-blue-100 text-blue-700"
-                        }`}
-                      >
-                        {results.analysis.seniority_match.toUpperCase()} seniority
-                      </span>
-                    </div>
-                  </div>
-
-                  <p className="text-sm text-gray-600 bg-gray-50 rounded-lg p-3">{results.analysis.jd_summary}</p>
-
-                  {results.analysis.matched_keywords.length > 0 && (
-                    <div>
-                      <h3 className="text-sm font-semibold text-gray-700 mb-2">
-                        Matched Keywords ({results.analysis.matched_keywords.length})
-                      </h3>
-                      <div className="flex flex-wrap gap-2">
-                        {results.analysis.matched_keywords.map((k) => (
-                          <span
-                            key={k.keyword}
-                            className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full"
-                            title={k.resume_evidence}
-                          >
-                            {k.keyword}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {results.analysis.missing_keywords.length > 0 && (
-                    <div>
-                      <h3 className="text-sm font-semibold text-gray-700 mb-2">
-                        Missing Keywords ({results.analysis.missing_keywords.length})
-                      </h3>
-                      <div className="space-y-1">
-                        {results.analysis.missing_keywords.map((k) => (
-                          <div key={k.keyword} className="flex items-start gap-2 text-sm">
-                            <span
-                              className={`text-xs font-medium px-1.5 py-0.5 rounded shrink-0 ${
-                                k.importance === "required"
-                                  ? "bg-red-100 text-red-700"
-                                  : "bg-yellow-100 text-yellow-700"
-                              }`}
-                            >
-                              {k.importance}
-                            </span>
-                            <span className="text-gray-800 font-medium">{k.keyword}</span>
-                            <span className="text-gray-400 text-xs">{k.jd_evidence.slice(0, 80)}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {results.analysis.skill_gaps.length > 0 && (
-                    <div>
-                      <h3 className="text-sm font-semibold text-gray-700 mb-2">Skill Gaps</h3>
-                      <div className="space-y-2">
-                        {results.analysis.skill_gaps.map((g) => (
-                          <div
-                            key={g.skill}
-                            className="flex items-start gap-2 text-sm border border-gray-100 rounded-lg p-2"
-                          >
-                            <span className="font-medium text-gray-800 shrink-0">{g.skill}</span>
-                            <span
-                              className={`text-xs px-1.5 py-0.5 rounded shrink-0 ${
-                                g.has_adjacent_experience
-                                  ? "bg-blue-100 text-blue-700"
-                                  : "bg-gray-100 text-gray-500"
-                              }`}
-                            >
-                              {g.has_adjacent_experience ? "adjacent exp" : "no adjacent exp"}
-                            </span>
-                            <span className="text-gray-500 text-xs">{g.notes}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Rewrites tab */}
-              {activeTab === "rewrites" && results.rewrites && (
-                <div className="space-y-4">
-                  {results.groundingViolations && results.groundingViolations.length > 0 && (
-                    <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm">
-                      <p className="font-medium text-red-700 mb-1">⚠ Grounding warnings — review before using:</p>
-                      {results.groundingViolations.map((v) => (
-                        <p key={v.suggestion_index} className="text-red-600 text-xs">
-                          #{v.suggestion_index + 1}: introduces {v.ungrounded_terms.join(", ")} not found in your resume
-                        </p>
-                      ))}
-                    </div>
-                  )}
-                  {results.rewrites.map((s, i) => (
-                    <div
-                      key={i}
-                      className={`border rounded-lg p-4 space-y-2 cursor-pointer transition-colors ${
-                        acceptedIndices.has(i)
-                          ? "border-green-400 bg-green-50"
-                          : flaggedIndices.has(i)
-                          ? "border-red-200 bg-red-50"
-                          : "border-gray-200 hover:border-gray-300"
-                      }`}
-                      onClick={() =>
-                        setAcceptedIndices((prev) => {
-                          const next = new Set(prev);
-                          next.has(i) ? next.delete(i) : next.add(i);
-                          return next;
-                        })
-                      }
-                    >
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          checked={acceptedIndices.has(i)}
-                          onChange={() => {}}
-                          className="w-4 h-4 accent-green-600"
-                          onClick={(e) => e.stopPropagation()}
-                        />
-                        <span className="text-xs font-medium bg-gray-100 text-gray-600 px-2 py-0.5 rounded">
-                          {s.section}
-                        </span>
-                        {flaggedIndices.has(i) && (
-                          <span className="text-xs font-medium text-red-600">⚠ flagged</span>
-                        )}
-                        {acceptedIndices.has(i) && (
-                          <span className="text-xs font-medium text-green-600 ml-auto">✓ accepted</span>
-                        )}
-                      </div>
-                      <div className="text-sm">
-                        <p className="text-gray-400 line-through">{s.original_line}</p>
-                        <p className="text-gray-900 font-medium mt-1">{s.suggested_line}</p>
-                      </div>
-                      <p className="text-xs text-gray-500">{s.reason}</p>
-                      <p className="text-xs text-indigo-500">Grounded in: {s.grounded_in}</p>
-                    </div>
-                  ))}
-                  <div className="pt-2 flex items-center gap-3">
-                    <button
-                      onClick={handleExportResume}
-                      disabled={exporting || acceptedIndices.size === 0}
-                      className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                    >
-                      {exporting ? "Exporting…" : `Export Resume DOCX (${acceptedIndices.size} accepted)`}
-                    </button>
-                    {acceptedIndices.size === 0 && (
-                      <p className="text-xs text-gray-400">Check suggestions above to accept them</p>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Cover letter tab */}
-              {activeTab === "cover-letter" && results.coverLetterDraft && (
-                <div className="space-y-4">
-                  <div className="whitespace-pre-wrap text-sm text-gray-800 leading-relaxed border border-gray-200 rounded-lg p-4 bg-gray-50">
-                    {results.coverLetterDraft}
-                  </div>
+          {/* Results panel */}
+          {results.analysis && (
+            <div
+              className="rounded-xl overflow-hidden"
+              style={{
+                backgroundColor: "var(--color-surface)",
+                border: "1px solid var(--color-border)",
+              }}
+            >
+              {/* Tab bar */}
+              <div
+                className="flex"
+                style={{ borderBottom: "1px solid var(--color-border)" }}
+              >
+                {tabs.map((t) => (
                   <button
-                    onClick={handleExportCoverLetter}
-                    disabled={exporting}
-                    className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                    key={t.id}
+                    onClick={() => t.available && setActiveTab(t.id)}
+                    className="px-4 py-3 text-sm font-medium transition-colors"
+                    style={{
+                      borderBottom: activeTab === t.id
+                        ? "2px solid var(--color-accent)"
+                        : "2px solid transparent",
+                      marginBottom: "-1px",
+                      color: activeTab === t.id
+                        ? "var(--color-accent)"
+                        : t.available
+                        ? "var(--color-ink-muted)"
+                        : "var(--color-ink-faint)",
+                      cursor: t.available ? "pointer" : "not-allowed",
+                    }}
                   >
-                    {exporting ? "Exporting…" : "Download Cover Letter DOCX"}
+                    {t.label}
                   </button>
-                  {results.coverLetterGrounding && results.coverLetterGrounding.length > 0 && (
-                    <div>
-                      <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-                        Paragraph grounding
-                      </h3>
-                      <div className="space-y-1">
-                        {results.coverLetterGrounding.map((g) => (
-                          <p key={g.paragraph_index} className="text-xs text-gray-500">
-                            Para {g.paragraph_index + 1}: {g.grounded_in.join(", ")}
-                          </p>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
+                ))}
+                {loading && (
+                  <span
+                    className="ml-auto self-center pr-4 text-xs flex items-center gap-1.5"
+                    style={{ color: "var(--color-ink-faint)" }}
+                  >
+                    <svg className="animate-spin" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                      <circle cx="6" cy="6" r="4.5" stroke="currentColor" strokeOpacity="0.25" strokeWidth="1.5" />
+                      <path d="M6 1.5a4.5 4.5 0 0 1 4.5 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                    </svg>
+                    Processing…
+                  </span>
+                )}
+              </div>
 
-              {/* Interview prep tab */}
-              {activeTab === "interview" && results.interviewQuestions && (
-                <div className="space-y-6">
-                  {(["behavioral", "technical", "gap_probe"] as const).map((cat) => {
-                    const qs = results.interviewQuestions!.filter((q) => q.category === cat);
-                    if (!qs.length) return null;
-                    const labels = {
-                      behavioral: "Behavioral",
-                      technical: "Technical",
-                      gap_probe: "Gap Probes (expect these)",
-                    };
-                    const colors = {
-                      behavioral: "bg-blue-100 text-blue-700",
-                      technical: "bg-purple-100 text-purple-700",
-                      gap_probe: "bg-orange-100 text-orange-700",
-                    };
-                    return (
-                      <div key={cat}>
-                        <span className={`inline-block text-xs font-semibold px-2 py-0.5 rounded mb-3 ${colors[cat]}`}>
-                          {labels[cat]}
+              <div className="p-6">
+
+                {/* ── Analysis tab ── */}
+                {activeTab === "analysis" && results.analysis && (
+                  <div className="space-y-6">
+
+                    {/* Score row */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-baseline gap-2">
+                          <span
+                            className="text-2xl font-bold tabular-nums"
+                            style={{ color: scoreColor }}
+                          >
+                            {results.analysis.ats_score.toFixed(1)}
+                          </span>
+                          <span className="text-sm" style={{ color: "var(--color-ink-muted)" }}>
+                            / 100 ATS score
+                          </span>
+                        </div>
+                        <span
+                          className="text-xs font-semibold px-2.5 py-1 rounded-md"
+                          style={
+                            results.analysis.seniority_match === "match"
+                              ? { backgroundColor: "var(--color-success-bg)", color: "var(--color-success-text)" }
+                              : results.analysis.seniority_match === "under"
+                              ? { backgroundColor: "var(--color-warning-bg)", color: "var(--color-warning-text)" }
+                              : { backgroundColor: "var(--color-accent-subtle)", color: "var(--color-accent-text)" }
+                          }
+                        >
+                          {results.analysis.seniority_match} seniority
                         </span>
-                        <div className="space-y-3">
-                          {qs.map((q, i) => (
-                            <details key={i} className="border border-gray-200 rounded-lg group">
-                              <summary className="p-3 text-sm font-medium cursor-pointer list-none flex justify-between items-center">
-                                {q.question}
-                                <span className="text-gray-400 ml-2 shrink-0">▾</span>
-                              </summary>
-                              <div className="px-3 pb-3 space-y-2 border-t border-gray-100 pt-2">
-                                {q.relevant_resume_points.length > 0 && (
-                                  <div>
-                                    <p className="text-xs font-medium text-gray-500 mb-1">Relevant resume points:</p>
-                                    <ul className="text-xs text-gray-600 space-y-0.5 list-disc list-inside">
-                                      {q.relevant_resume_points.map((p, j) => <li key={j}>{p}</li>)}
-                                    </ul>
-                                  </div>
-                                )}
-                                {q.suggested_talking_points.length > 0 && (
-                                  <div>
-                                    <p className="text-xs font-medium text-gray-500 mb-1">Talking points:</p>
-                                    <ul className="text-xs text-gray-600 space-y-0.5 list-disc list-inside">
-                                      {q.suggested_talking_points.map((p, j) => <li key={j}>{p}</li>)}
-                                    </ul>
-                                  </div>
-                                )}
+                      </div>
+                      {/* Progress bar */}
+                      <div
+                        className="h-1.5 rounded-full overflow-hidden"
+                        style={{ backgroundColor: "var(--color-border)" }}
+                      >
+                        <div
+                          className="h-full rounded-full transition-all duration-500"
+                          style={{
+                            width: `${results.analysis.ats_score}%`,
+                            backgroundColor: scoreColor,
+                          }}
+                        />
+                      </div>
+                      <p className="text-xs" style={{ color: "var(--color-ink-faint)" }}>
+                        Required keywords weighted 2×. Score computed from your resume, not estimated.
+                      </p>
+                    </div>
+
+                    {/* JD summary */}
+                    <p
+                      className="text-sm leading-relaxed rounded-lg px-4 py-3"
+                      style={{
+                        backgroundColor: "var(--color-surface-2)",
+                        color: "var(--color-ink-muted)",
+                        border: "1px solid var(--color-border)",
+                      }}
+                    >
+                      {results.analysis.jd_summary}
+                    </p>
+
+                    {/* Keywords grid */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                      {results.analysis.matched_keywords.length > 0 && (
+                        <div>
+                          <h3
+                            className="text-sm font-semibold mb-2.5"
+                            style={{ color: "var(--color-ink)" }}
+                          >
+                            Matched ({results.analysis.matched_keywords.length})
+                          </h3>
+                          <div className="flex flex-wrap gap-1.5">
+                            {results.analysis.matched_keywords.map((k) => (
+                              <span
+                                key={k.keyword}
+                                className="text-xs font-medium px-2 py-0.5 rounded"
+                                style={{
+                                  backgroundColor: "var(--color-success-bg)",
+                                  color: "var(--color-success-text)",
+                                }}
+                                title={k.resume_evidence}
+                              >
+                                {k.keyword}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {results.analysis.missing_keywords.length > 0 && (
+                        <div>
+                          <h3
+                            className="text-sm font-semibold mb-2.5"
+                            style={{ color: "var(--color-ink)" }}
+                          >
+                            Missing ({results.analysis.missing_keywords.length})
+                          </h3>
+                          <div className="space-y-1.5">
+                            {results.analysis.missing_keywords.map((k) => (
+                              <div key={k.keyword} className="flex items-start gap-2 text-sm">
+                                <span
+                                  className="text-xs font-semibold px-1.5 py-0.5 rounded shrink-0 mt-px"
+                                  style={
+                                    k.importance === "required"
+                                      ? { backgroundColor: "var(--color-danger-bg)", color: "var(--color-danger-text)" }
+                                      : { backgroundColor: "var(--color-warning-bg)", color: "var(--color-warning-text)" }
+                                  }
+                                >
+                                  {k.importance}
+                                </span>
+                                <span style={{ color: "var(--color-ink)" }}>{k.keyword}</span>
                               </div>
-                            </details>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Skill gaps */}
+                    {results.analysis.skill_gaps.length > 0 && (
+                      <div>
+                        <h3
+                          className="text-sm font-semibold mb-2.5"
+                          style={{ color: "var(--color-ink)" }}
+                        >
+                          Skill gaps
+                        </h3>
+                        <div className="space-y-2">
+                          {results.analysis.skill_gaps.map((g) => (
+                            <div
+                              key={g.skill}
+                              className="flex items-start gap-3 text-sm rounded-lg px-3 py-2.5"
+                              style={{
+                                backgroundColor: "var(--color-surface-2)",
+                                border: "1px solid var(--color-border)",
+                              }}
+                            >
+                              <span
+                                className="font-semibold shrink-0"
+                                style={{ color: "var(--color-ink)" }}
+                              >
+                                {g.skill}
+                              </span>
+                              <span
+                                className="text-xs font-medium px-1.5 py-0.5 rounded shrink-0 mt-px"
+                                style={
+                                  g.has_adjacent_experience
+                                    ? { backgroundColor: "var(--color-accent-subtle)", color: "var(--color-accent-text)" }
+                                    : { backgroundColor: "var(--color-surface-2)", color: "var(--color-ink-faint)", border: "1px solid var(--color-border)" }
+                                }
+                              >
+                                {g.has_adjacent_experience ? "adjacent experience" : "no adjacent exp"}
+                              </span>
+                              <span className="text-xs" style={{ color: "var(--color-ink-muted)" }}>
+                                {g.notes}
+                              </span>
+                            </div>
                           ))}
                         </div>
                       </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
+                    )}
+                  </div>
+                )}
 
-        <ApplicationTracker onReload={handleReload} refreshTick={trackerTick} />
-      </div>
-    </main>
+                {/* ── Rewrites tab ── */}
+                {activeTab === "rewrites" && results.rewrites && (
+                  <div className="space-y-4">
+                    {results.groundingViolations && results.groundingViolations.length > 0 && (
+                      <div
+                        className="rounded-lg px-4 py-3 text-sm"
+                        style={{
+                          backgroundColor: "var(--color-warning-bg)",
+                          border: "1px solid oklch(0.85 0.09 75)",
+                        }}
+                      >
+                        <p className="font-semibold mb-1" style={{ color: "var(--color-warning-text)" }}>
+                          Grounding warnings — review before using
+                        </p>
+                        {results.groundingViolations.map((v) => (
+                          <p key={v.suggestion_index} className="text-xs mt-0.5" style={{ color: "var(--color-warning-text)" }}>
+                            Suggestion {v.suggestion_index + 1}: introduces {v.ungrounded_terms.join(", ")} not found in your resume
+                          </p>
+                        ))}
+                      </div>
+                    )}
+
+                    {results.rewrites.map((s, i) => (
+                      <div
+                        key={i}
+                        className="rounded-lg p-4 space-y-3 cursor-pointer transition-all"
+                        style={{
+                          border: acceptedIndices.has(i)
+                            ? "1px solid oklch(0.70 0.10 160)"
+                            : flaggedIndices.has(i)
+                            ? "1px solid oklch(0.82 0.09 75)"
+                            : "1px solid var(--color-border)",
+                          backgroundColor: acceptedIndices.has(i)
+                            ? "var(--color-success-bg)"
+                            : flaggedIndices.has(i)
+                            ? "var(--color-warning-bg)"
+                            : "var(--color-surface-2)",
+                        }}
+                        onClick={() =>
+                          setAcceptedIndices((prev) => {
+                            const next = new Set(prev);
+                            next.has(i) ? next.delete(i) : next.add(i);
+                            return next;
+                          })
+                        }
+                      >
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={acceptedIndices.has(i)}
+                            onChange={() => {}}
+                            className="w-4 h-4 rounded"
+                            style={{ accentColor: "var(--color-accent)" }}
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                          <span
+                            className="text-xs font-semibold px-2 py-0.5 rounded"
+                            style={{
+                              backgroundColor: "var(--color-surface)",
+                              color: "var(--color-ink-muted)",
+                              border: "1px solid var(--color-border)",
+                            }}
+                          >
+                            {s.section}
+                          </span>
+                          {flaggedIndices.has(i) && (
+                            <span className="text-xs font-semibold" style={{ color: "var(--color-warning-text)" }}>
+                              grounding warning
+                            </span>
+                          )}
+                          {acceptedIndices.has(i) && (
+                            <span className="text-xs font-semibold ml-auto" style={{ color: "var(--color-success-text)" }}>
+                              accepted
+                            </span>
+                          )}
+                        </div>
+                        <div className="space-y-1 text-sm">
+                          <p
+                            className="line-through text-xs leading-relaxed"
+                            style={{ color: "var(--color-ink-faint)" }}
+                          >
+                            {s.original_line}
+                          </p>
+                          <p className="font-medium leading-relaxed" style={{ color: "var(--color-ink)" }}>
+                            {s.suggested_line}
+                          </p>
+                        </div>
+                        <div className="flex items-start gap-4 text-xs" style={{ color: "var(--color-ink-muted)" }}>
+                          <span>{s.reason}</span>
+                          <span
+                            className="shrink-0 ml-auto"
+                            style={{ color: "var(--color-accent-text)" }}
+                          >
+                            grounded in {s.grounded_in}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+
+                    <div className="pt-1 flex items-center gap-4">
+                      <button
+                        onClick={handleExportResume}
+                        disabled={exporting || acceptedIndices.size === 0}
+                        className="text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
+                        style={{
+                          backgroundColor: acceptedIndices.size === 0 ? "var(--color-surface-2)" : "var(--color-accent)",
+                          color: acceptedIndices.size === 0 ? "var(--color-ink-faint)" : "white",
+                          cursor: acceptedIndices.size === 0 ? "not-allowed" : "pointer",
+                          border: acceptedIndices.size === 0 ? "1px solid var(--color-border)" : "none",
+                        }}
+                        onMouseEnter={(e) => {
+                          if (acceptedIndices.size > 0 && !exporting)
+                            (e.currentTarget as HTMLElement).style.backgroundColor = "var(--color-accent-hover)";
+                        }}
+                        onMouseLeave={(e) => {
+                          if (acceptedIndices.size > 0 && !exporting)
+                            (e.currentTarget as HTMLElement).style.backgroundColor = "var(--color-accent)";
+                        }}
+                      >
+                        {exporting
+                          ? "Exporting…"
+                          : acceptedIndices.size === 0
+                          ? "Accept suggestions to export"
+                          : `Download resume DOCX (${acceptedIndices.size} change${acceptedIndices.size !== 1 ? "s" : ""})`}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* ── Cover letter tab ── */}
+                {activeTab === "cover-letter" && results.coverLetterDraft && (
+                  <div className="space-y-4">
+                    <div
+                      className="whitespace-pre-wrap text-sm leading-relaxed rounded-lg px-4 py-4"
+                      style={{
+                        backgroundColor: "var(--color-surface-2)",
+                        color: "var(--color-ink)",
+                        border: "1px solid var(--color-border)",
+                        lineHeight: "1.75",
+                        maxWidth: "65ch",
+                      }}
+                    >
+                      {results.coverLetterDraft}
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <button
+                        onClick={handleExportCoverLetter}
+                        disabled={exporting}
+                        className="text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
+                        style={{
+                          backgroundColor: "var(--color-accent)",
+                          color: "white",
+                          cursor: exporting ? "not-allowed" : "pointer",
+                          opacity: exporting ? 0.6 : 1,
+                        }}
+                        onMouseEnter={(e) => {
+                          if (!exporting) (e.currentTarget as HTMLElement).style.backgroundColor = "var(--color-accent-hover)";
+                        }}
+                        onMouseLeave={(e) => {
+                          if (!exporting) (e.currentTarget as HTMLElement).style.backgroundColor = "var(--color-accent)";
+                        }}
+                      >
+                        {exporting ? "Exporting…" : "Download cover letter DOCX"}
+                      </button>
+                    </div>
+                    {results.coverLetterGrounding && results.coverLetterGrounding.length > 0 && (
+                      <div className="pt-1">
+                        <p className="text-xs font-semibold mb-2" style={{ color: "var(--color-ink-muted)" }}>
+                          Grounding by paragraph
+                        </p>
+                        <div className="space-y-1">
+                          {results.coverLetterGrounding.map((g) => (
+                            <p key={g.paragraph_index} className="text-xs" style={{ color: "var(--color-ink-faint)" }}>
+                              Para {g.paragraph_index + 1}: {g.grounded_in.join(", ")}
+                            </p>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* ── Interview prep tab ── */}
+                {activeTab === "interview" && results.interviewQuestions && (
+                  <div className="space-y-6">
+                    {(["behavioral", "technical", "gap_probe"] as const).map((cat) => {
+                      const qs = results.interviewQuestions!.filter((q) => q.category === cat);
+                      if (!qs.length) return null;
+                      const labels = {
+                        behavioral: "Behavioral",
+                        technical: "Technical",
+                        gap_probe: "Gap probes — expect these",
+                      };
+                      const styles: Record<string, { bg: string; color: string }> = {
+                        behavioral: { bg: "var(--color-accent-subtle)", color: "var(--color-accent-text)" },
+                        technical: { bg: "oklch(0.95 0.03 290)", color: "oklch(0.35 0.10 290)" },
+                        gap_probe: { bg: "var(--color-warning-bg)", color: "var(--color-warning-text)" },
+                      };
+                      return (
+                        <div key={cat}>
+                          <span
+                            className="inline-block text-xs font-semibold px-2.5 py-1 rounded-md mb-3"
+                            style={styles[cat]}
+                          >
+                            {labels[cat]}
+                          </span>
+                          <div className="space-y-2">
+                            {qs.map((q, i) => (
+                              <details
+                                key={i}
+                                className="rounded-lg group"
+                                style={{
+                                  border: "1px solid var(--color-border)",
+                                }}
+                              >
+                                <summary
+                                  className="px-4 py-3 text-sm font-medium cursor-pointer list-none flex justify-between items-center gap-3"
+                                  style={{ color: "var(--color-ink)" }}
+                                >
+                                  <span>{q.question}</span>
+                                  <svg
+                                    width="14"
+                                    height="14"
+                                    viewBox="0 0 14 14"
+                                    fill="none"
+                                    className="shrink-0 transition-transform group-open:rotate-180"
+                                    aria-hidden="true"
+                                    style={{ color: "var(--color-ink-faint)" }}
+                                  >
+                                    <path d="M3 5l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                  </svg>
+                                </summary>
+                                <div
+                                  className="px-4 pb-4 pt-3 space-y-3"
+                                  style={{ borderTop: "1px solid var(--color-border)" }}
+                                >
+                                  {q.relevant_resume_points.length > 0 && (
+                                    <div>
+                                      <p className="text-xs font-semibold mb-1.5" style={{ color: "var(--color-ink-muted)" }}>
+                                        From your resume
+                                      </p>
+                                      <ul className="space-y-1">
+                                        {q.relevant_resume_points.map((p, j) => (
+                                          <li key={j} className="text-xs flex gap-2" style={{ color: "var(--color-ink-muted)" }}>
+                                            <span style={{ color: "var(--color-ink-faint)" }}>–</span>
+                                            {p}
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    </div>
+                                  )}
+                                  {q.suggested_talking_points.length > 0 && (
+                                    <div>
+                                      <p className="text-xs font-semibold mb-1.5" style={{ color: "var(--color-ink-muted)" }}>
+                                        Talking points
+                                      </p>
+                                      <ul className="space-y-1">
+                                        {q.suggested_talking_points.map((p, j) => (
+                                          <li key={j} className="text-xs flex gap-2" style={{ color: "var(--color-ink-muted)" }}>
+                                            <span style={{ color: "var(--color-ink-faint)" }}>–</span>
+                                            {p}
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    </div>
+                                  )}
+                                </div>
+                              </details>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+              </div>
+            </div>
+          )}
+
+          <ApplicationTracker onReload={handleReload} refreshTick={trackerTick} />
+        </div>
+      </main>
+    </>
   );
 }
