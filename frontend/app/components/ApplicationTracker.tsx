@@ -10,20 +10,16 @@ import {
 } from "@/lib/tracker";
 
 const STATUS_OPTIONS: { value: ApplicationStatus; label: string }[] = [
-  { value: "saved",        label: "Saved" },
-  { value: "applied",      label: "Applied" },
-  { value: "interviewing", label: "Interviewing" },
-  { value: "rejected",     label: "Rejected" },
-  { value: "offer",        label: "Offer" },
+  { value: "saved",    label: "Saved" },
+  { value: "applied",  label: "Applied" },
+  { value: "rejected", label: "Rejected" },
 ];
 
 function statusStyle(s: ApplicationStatus): { bg: string; color: string } {
   switch (s) {
-    case "saved":        return { bg: "var(--color-surface-2)", color: "var(--color-ink-muted)" };
-    case "applied":      return { bg: "var(--color-accent-subtle)", color: "var(--color-accent-text)" };
-    case "interviewing": return { bg: "oklch(0.95 0.03 290)", color: "oklch(0.35 0.10 290)" };
-    case "rejected":     return { bg: "var(--color-danger-bg)", color: "var(--color-danger-text)" };
-    case "offer":        return { bg: "var(--color-success-bg)", color: "var(--color-success-text)" };
+    case "saved":    return { bg: "var(--color-surface-2)", color: "var(--color-ink-muted)" };
+    case "applied":  return { bg: "var(--color-accent-subtle)", color: "var(--color-accent-text)" };
+    case "rejected": return { bg: "var(--color-danger-bg)", color: "var(--color-danger-text)" };
   }
 }
 
@@ -54,8 +50,8 @@ export default function ApplicationTracker({ onReload, refreshTick }: Props) {
   if (apps.length === 0) return null;
 
   const avgScore = Math.round(apps.reduce((s, a) => s + a.ats_score, 0) / apps.length);
-  const offerCount = apps.filter((a) => a.status === "offer").length;
-  const interviewCount = apps.filter((a) => a.status === "interviewing").length;
+  const appliedCount = apps.filter((a) => a.status === "applied").length;
+  const rejectedCount = apps.filter((a) => a.status === "rejected").length;
 
   return (
     <div
@@ -86,16 +82,16 @@ export default function ApplicationTracker({ onReload, refreshTick }: Props) {
             <div className="text-xs" style={{ color: "var(--color-ink-faint)" }}>avg ATS</div>
           </div>
           <div className="text-center">
-            <div className="text-base font-bold tabular-nums" style={{ color: "oklch(0.35 0.10 290)" }}>
-              {interviewCount}
+            <div className="text-base font-bold tabular-nums" style={{ color: "var(--color-accent)" }}>
+              {appliedCount}
             </div>
-            <div className="text-xs" style={{ color: "var(--color-ink-faint)" }}>interviews</div>
+            <div className="text-xs" style={{ color: "var(--color-ink-faint)" }}>applied</div>
           </div>
           <div className="text-center">
-            <div className="text-base font-bold tabular-nums" style={{ color: "var(--color-success)" }}>
-              {offerCount}
+            <div className="text-base font-bold tabular-nums" style={{ color: "var(--color-danger)" }}>
+              {rejectedCount}
             </div>
-            <div className="text-xs" style={{ color: "var(--color-ink-faint)" }}>offers</div>
+            <div className="text-xs" style={{ color: "var(--color-ink-faint)" }}>rejected</div>
           </div>
         </div>
       </div>
