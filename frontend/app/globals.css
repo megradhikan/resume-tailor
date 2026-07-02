@@ -1,26 +1,94 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  /* Background layers */
+  --color-bg:        oklch(0.963 0.006 245);
+  --color-surface:   oklch(1 0 0);
+  --color-surface-2: oklch(0.976 0.005 245);
+
+  /* Ink ramp */
+  --color-ink:       oklch(0.14 0.012 245);
+  --color-ink-muted: oklch(0.46 0.009 245);
+  --color-ink-faint: oklch(0.70 0.006 245);
+
+  /* Borders */
+  --color-border:       oklch(0.87 0.006 245);
+  --color-border-strong: oklch(0.74 0.008 245);
+
+  /* Accent — blue-teal, precise */
+  --color-accent:        oklch(0.39 0.13 195);
+  --color-accent-hover:  oklch(0.32 0.13 195);
+  --color-accent-subtle: oklch(0.95 0.035 195);
+  --color-accent-text:   oklch(0.33 0.11 195);
+
+  /* Semantic — success (green) */
+  --color-success:      oklch(0.40 0.12 160);
+  --color-success-bg:   oklch(0.955 0.04 160);
+  --color-success-text: oklch(0.34 0.11 160);
+
+  /* Semantic — warning (amber) */
+  --color-warning:      oklch(0.52 0.15 75);
+  --color-warning-bg:   oklch(0.97 0.04 75);
+  --color-warning-text: oklch(0.44 0.13 75);
+
+  /* Semantic — danger (red) */
+  --color-danger:      oklch(0.50 0.18 25);
+  --color-danger-bg:   oklch(0.97 0.04 25);
+  --color-danger-text: oklch(0.43 0.16 25);
+
+  /* Header */
+  --color-header:      oklch(0.12 0.012 245);
+  --color-header-dim:  oklch(0.54 0.008 245);
+
+  /* Font stacks */
+  --font-sans: var(--font-geist-sans), system-ui, -apple-system, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 16px;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--color-bg);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Focus ring system */
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-border-strong);
+  border-radius: 3px;
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }
