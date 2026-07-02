@@ -18,6 +18,7 @@ T = TypeVar("T", bound=BaseModel)
 _MODEL = "llama-3.3-70b-versatile"
 _MAX_RETRIES = 3
 _RETRY_DELAY = 2.0  # seconds; doubles on each 429
+_MAX_OUTPUT_TOKENS = 4096  # cap output to prevent runaway LLM responses
 
 
 def _get_client() -> Groq:
@@ -61,6 +62,7 @@ def call_llm(prompt: str, response_schema: type[T]) -> T:
                 response_format={"type": "json_object"},
                 temperature=0,
                 timeout=30.0,
+                max_tokens=_MAX_OUTPUT_TOKENS,
             )
             raw = response.choices[0].message.content
             data = json.loads(raw)

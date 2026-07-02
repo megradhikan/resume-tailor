@@ -300,6 +300,61 @@ def test_export_cover_letter_minimal(client):
     assert r.status_code == 200
 
 
+# ── ValueError boundary — parse errors become 400, not 500 ───────────────────
+
+def test_parse_error_returns_400_not_500(client):
+    """ValueError from parse_resume must produce a 400, not a 500."""
+    with patch("src.api.app.parse_resume", side_effect=ValueError("Could not extract text from PDF.")):
+        r = client.post("/analyze", data={
+            "job_description": "A job.",
+            "resume_text": "x",   # non-empty so we reach the parse call
+        })
+    assert r.status_code == 400
+    assert "Could not extract text" in r.json()["detail"]
+
+
+def test_unexpected_parse_error_returns_400(client):
+    """Non-ValueError library exceptions from parse_resume also become 400."""
+    with patch("src.api.app.parse_resume", side_effect=Exception("pdfplumber internal error")):
+        r = client.post("/analyze", data={
+            "job_description": "A job.",
+            "resume_text": "x",
+        })
+    assert r.status_code == 400
+    assert r.json()["detail"] == "Could not parse the uploaded file."
+
+
+# ── Sections size cap ─────────────────────────────────────────────────────────
+
+def test_sections_are_truncated(client):
+    """Crafted input producing >20 sections must be silently capped."""
+    # Build a text with 30 sections by using multiple section headers
+    section_headers = [
+        "Experience", "Education", "Skills", "Projects", "Certifications",
+        "Summary", "Experience", "Education", "Skills", "Projects",
+        "Certifications", "Summary", "Experience", "Education", "Skills",
+        "Projects", "Certifications", "Summary", "Experience", "Education",
+        "Skills", "Projects", "Certifications", "Summary", "Experience",
+        "Education", "Skills", "Projects", "Certifications", "Summary",
+    ]
+    resume = "\n".join(f"{h}\nLine under {h}" for h in section_headers)
+    with patch("src.agents.analyzer.run", return_value=make_analysis_result()):
+        r = client.post("/analyze", data={
+            "job_description": "A job.",
+            "resume_text": resume,
+        })
+    assert r.status_code == 200
+    sections = r.json()["resume_sections"]
+    assert len(sections) <= 20
+
+
+# ── DEBUG mode — docs disabled by default ────────────────────────────────────
+
+def test_docs_disabled_by_default(client):
+    for path in ("/docs", "/redoc", "/openapi.json"):
+        assert client.get(path).status_code == 404
+
+
 # ── Generic error handler ─────────────────────────────────────────────────────
 
 def test_internal_error_does_not_leak_details(client):
