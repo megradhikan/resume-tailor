@@ -46,6 +46,53 @@ def test_resume_docx_is_valid_docx():
     assert doc is not None
 
 
+def test_resume_docx_fuzzy_matches_llm_paraphrase():
+    """LLM often normalises punctuation/spacing in original_line — must still match."""
+    # Resume has "Built REST APIs using FastAPI and PostgreSQL"
+    # LLM quotes it back with a trailing period and extra space
+    suggestion_with_imperfect_quote = {
+        "section": "experience",
+        "original_line": "Built REST APIs using FastAPI and PostgreSQL.",  # extra period
+        "suggested_line": "Architected and delivered high-throughput REST APIs using FastAPI and PostgreSQL",
+        "reason": "Stronger verb",
+        "grounded_in": "FastAPI, PostgreSQL",
+    }
+    result = build_resume_docx(RESUME_TEXT, [suggestion_with_imperfect_quote])
+    doc = _load_docx(result)
+    all_text = "\n".join(p.text for p in doc.paragraphs)
+    assert "high-throughput" in all_text or "Architected" in all_text
+
+
+def test_resume_docx_fuzzy_matches_whitespace_difference():
+    """Extra leading/trailing whitespace in LLM quote must still fuzzy-match."""
+    suggestion = {
+        "section": "experience",
+        "original_line": "  Led a team of 5 engineers  ",  # extra whitespace
+        "suggested_line": "Managed and mentored a cross-functional team of 5 engineers",
+        "reason": "Stronger leadership language",
+        "grounded_in": "team of 5 engineers",
+    }
+    result = build_resume_docx(RESUME_TEXT, [suggestion])
+    doc = _load_docx(result)
+    all_text = "\n".join(p.text for p in doc.paragraphs)
+    assert "mentored" in all_text
+
+
+def test_resume_docx_does_not_fuzzy_match_unrelated_line():
+    """A suggestion whose original_line is totally different must not match any line."""
+    suggestion = {
+        "section": "skills",
+        "original_line": "Completely unrelated line that does not appear anywhere",
+        "suggested_line": "Should not appear in output",
+        "reason": "n/a",
+        "grounded_in": "n/a",
+    }
+    result = build_resume_docx(RESUME_TEXT, [suggestion])
+    doc = _load_docx(result)
+    all_text = "\n".join(p.text for p in doc.paragraphs)
+    assert "Should not appear" not in all_text
+
+
 def test_resume_docx_contains_original_lines_when_no_suggestions():
     result = build_resume_docx(RESUME_TEXT, [])
     doc = _load_docx(result)
