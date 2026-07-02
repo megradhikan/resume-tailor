@@ -210,7 +210,7 @@ async def analyze(
         job_description=job_description,
     )
     analysis = analyzer_agent.run(inp)
-    return AnalyzeResponse(analysis=analysis, resume_sections=sections)
+    return AnalyzeResponse(analysis=analysis, resume_sections=sections, resume_text=parsed.text)
 
 
 # ── /rewrite ──────────────────────────────────────────────────────────────────

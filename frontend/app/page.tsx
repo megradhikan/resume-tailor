@@ -92,7 +92,9 @@ export default function Home() {
     setAcceptedIndices(new Set());
     try {
       const data = await analyze(resumeText, jd, resumeFile ?? undefined);
-      setResults({ analysis: data.analysis, resumeText, resumeSections: data.resume_sections });
+      // Use data.resume_text — for file uploads this is the server-parsed text,
+      // for text paste it equals the textarea value.
+      setResults({ analysis: data.analysis, resumeText: data.resume_text, resumeSections: data.resume_sections });
       setActiveTab("analysis");
 
       setLoading("Generating rewrites, cover letter, and interview prep…");

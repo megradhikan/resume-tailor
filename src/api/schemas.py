@@ -40,6 +40,7 @@ class InterviewPrepRequest(BaseModel):
 class AnalyzeResponse(BaseModel):
     analysis: AnalysisResult
     resume_sections: dict[str, list[str]]
+    resume_text: str
 
 
 class RewriteResponse(BaseModel):
