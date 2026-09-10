@@ -16,6 +16,18 @@ import {
 } from "@/lib/api";
 import { saveApplication, TrackedApplication } from "@/lib/tracker";
 import ApplicationTracker from "@/app/components/ApplicationTracker";
+import {
+  sampleResumeText,
+  sampleJobDescription,
+  sampleCompanyName,
+  sampleRoleTitle,
+  sampleAnalysis,
+  sampleRewrites,
+  sampleGroundingViolations,
+  sampleCoverLetterDraft,
+  sampleCoverLetterGrounding,
+  sampleInterviewQuestions,
+} from "@/lib/sampleData";
 
 type Tab = "analysis" | "rewrites" | "cover-letter" | "interview";
 
@@ -44,6 +56,7 @@ export default function Home() {
   const [acceptedIndices, setAcceptedIndices] = useState<Set<number>>(new Set());
   const [exporting, setExporting] = useState(false);
   const [trackerTick, setTrackerTick] = useState(0);
+  const [usingSample, setUsingSample] = useState(false);
 
   const downloadBlob = (blob: Blob, filename: string) => {
     const url = URL.createObjectURL(blob);
@@ -81,12 +94,37 @@ export default function Home() {
     }
   };
 
+  const runSample = () => {
+    setError(null);
+    setLoading(null);
+    setUsingSample(true);
+    setResumeText(sampleResumeText);
+    setResumeFile(null);
+    setJd(sampleJobDescription);
+    setCompanyName(sampleCompanyName);
+    setRoleTitle(sampleRoleTitle);
+    setResults({
+      analysis: sampleAnalysis,
+      resumeText: sampleResumeText,
+      resumeSections: {},
+      rewrites: sampleRewrites,
+      groundingViolations: sampleGroundingViolations,
+      coverLetterDraft: sampleCoverLetterDraft,
+      coverLetterGrounding: sampleCoverLetterGrounding,
+      interviewQuestions: sampleInterviewQuestions,
+    });
+    setAcceptedIndices(new Set());
+    setActiveTab("analysis");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   const runAnalysis = async () => {
     if (!jd.trim() || (!resumeText.trim() && !resumeFile)) {
       setError("Provide a resume and job description to continue.");
       return;
     }
     setError(null);
+    setUsingSample(false);
     setLoading("Analyzing resume against job description…");
     setResults({});
     setAcceptedIndices(new Set());
@@ -124,13 +162,15 @@ export default function Home() {
       });
       setTrackerTick((t) => t + 1);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Something went wrong.");
+      const message = e instanceof Error ? e.message : "Something went wrong.";
+      setError(`${message} — the backend may be unreachable. Try "See a sample" below instead.`);
     } finally {
       setLoading(null);
     }
   };
 
   const handleReload = (app: TrackedApplication) => {
+    setUsingSample(false);
     setResumeText(app.resume_text);
     setResumeFile(null);
     setJd(app.job_description);
@@ -356,41 +396,57 @@ export default function Home() {
             )}
 
             {/* Submit */}
-            <button
-              onClick={runAnalysis}
-              disabled={!!loading}
-              className="w-full py-2.5 text-sm font-semibold rounded-lg transition-colors"
-              style={{
-                backgroundColor: loading ? "var(--color-accent-subtle)" : "var(--color-accent)",
-                color: loading ? "var(--color-accent-text)" : "white",
-                cursor: loading ? "not-allowed" : "pointer",
-              }}
-              onMouseEnter={(e) => {
-                if (!loading) (e.currentTarget as HTMLElement).style.backgroundColor = "var(--color-accent-hover)";
-              }}
-              onMouseLeave={(e) => {
-                if (!loading) (e.currentTarget as HTMLElement).style.backgroundColor = "var(--color-accent)";
-              }}
-            >
-              {loading ? (
-                <span className="flex items-center justify-center gap-2">
-                  <svg
-                    className="animate-spin"
-                    width="14"
-                    height="14"
-                    viewBox="0 0 14 14"
-                    fill="none"
-                    aria-hidden="true"
-                  >
-                    <circle cx="7" cy="7" r="5.5" stroke="currentColor" strokeOpacity="0.25" strokeWidth="2" />
-                    <path d="M7 1.5a5.5 5.5 0 0 1 5.5 5.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                  </svg>
-                  {loading}
-                </span>
-              ) : (
-                "Analyze and tailor resume"
-              )}
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={runAnalysis}
+                disabled={!!loading}
+                className="flex-1 py-2.5 text-sm font-semibold rounded-lg transition-colors"
+                style={{
+                  backgroundColor: loading ? "var(--color-accent-subtle)" : "var(--color-accent)",
+                  color: loading ? "var(--color-accent-text)" : "white",
+                  cursor: loading ? "not-allowed" : "pointer",
+                }}
+                onMouseEnter={(e) => {
+                  if (!loading) (e.currentTarget as HTMLElement).style.backgroundColor = "var(--color-accent-hover)";
+                }}
+                onMouseLeave={(e) => {
+                  if (!loading) (e.currentTarget as HTMLElement).style.backgroundColor = "var(--color-accent)";
+                }}
+              >
+                {loading ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <svg
+                      className="animate-spin"
+                      width="14"
+                      height="14"
+                      viewBox="0 0 14 14"
+                      fill="none"
+                      aria-hidden="true"
+                    >
+                      <circle cx="7" cy="7" r="5.5" stroke="currentColor" strokeOpacity="0.25" strokeWidth="2" />
+                      <path d="M7 1.5a5.5 5.5 0 0 1 5.5 5.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                    </svg>
+                    {loading}
+                  </span>
+                ) : (
+                  "Analyze and tailor resume"
+                )}
+              </button>
+              <button
+                onClick={runSample}
+                disabled={!!loading}
+                title="Load a pre-computed example — no backend call"
+                className="py-2.5 px-4 text-sm font-semibold rounded-lg transition-colors"
+                style={{
+                  border: "1px solid var(--color-border-strong)",
+                  color: "var(--color-ink-muted)",
+                  backgroundColor: "var(--color-surface-2)",
+                  cursor: loading ? "not-allowed" : "pointer",
+                }}
+              >
+                See a sample
+              </button>
+            </div>
           </div>
 
           {/* Results panel */}
@@ -441,6 +497,19 @@ export default function Home() {
                   </span>
                 )}
               </div>
+
+              {usingSample && (
+                <div
+                  className="text-xs font-medium px-6 py-2"
+                  style={{
+                    backgroundColor: "var(--color-accent-subtle)",
+                    color: "var(--color-accent-text)",
+                    borderBottom: "1px solid var(--color-border)",
+                  }}
+                >
+                  Sample output — precomputed, not a live analysis. Paste your own resume and job description above to run the real pipeline.
+                </div>
+              )}
 
               <div className="p-6">
 
