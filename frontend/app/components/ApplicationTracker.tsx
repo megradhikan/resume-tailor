@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   getApplications,
   updateStatus,
@@ -29,11 +29,17 @@ interface Props {
 }
 
 export default function ApplicationTracker({ onReload, refreshTick }: Props) {
-  const [apps, setApps] = useState<TrackedApplication[]>([]);
+  const [apps, setApps] = useState<TrackedApplication[]>(() => getApplications());
+  const [lastTick, setLastTick] = useState(refreshTick);
+
+  // Re-read localStorage when the parent bumps refreshTick (new analysis saved),
+  // without a useEffect — this follows React's "adjust state during render" pattern.
+  if (refreshTick !== lastTick) {
+    setLastTick(refreshTick);
+    setApps(getApplications());
+  }
 
   const refresh = () => setApps(getApplications());
-
-  useEffect(() => { refresh(); }, [refreshTick]);
 
   const handleStatus = (id: string, status: ApplicationStatus) => {
     updateStatus(id, status);

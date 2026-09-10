@@ -718,7 +718,11 @@ export default function Home() {
                         onClick={() =>
                           setAcceptedIndices((prev) => {
                             const next = new Set(prev);
-                            next.has(i) ? next.delete(i) : next.add(i);
+                            if (next.has(i)) {
+                              next.delete(i);
+                            } else {
+                              next.add(i);
+                            }
                             return next;
                           })
                         }
