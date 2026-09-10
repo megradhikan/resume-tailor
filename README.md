@@ -1,8 +1,12 @@
 # Resume Tailor
 
-A multi-agent system that analyzes your resume against a job description and produces a gap analysis, targeted rewrite suggestions, a cover letter draft, and interview prep — without fabricating experience you don't have.
+[![Tests](https://github.com/megradhikan/resume-tailor/actions/workflows/tests.yml/badge.svg)](https://github.com/megradhikan/resume-tailor/actions/workflows/tests.yml)
 
-**Live:** [resume-tailor.vercel.app](https://resume-tailor.vercel.app)
+A multi-agent system that analyzes your resume against a job description and produces a gap analysis, targeted rewrite suggestions, a cover letter draft, and interview prep.
+
+**The constraint that shapes everything else: nothing is invented.** Every rewrite, every cover letter sentence, every interview talking point has to be traceable back to something already on your resume. That's enforced by a deterministic grounding check that runs in code after the LLM output — not a prompt asking the model to behave. See [PRODUCT.md](PRODUCT.md) for the fuller design rationale (users, brand principles, anti-references).
+
+**Live:** [resume-tailor.vercel.app](https://resume-tailor.vercel.app) — the demo includes a **"See a sample"** button that loads a precomputed example with no backend call, so it's explorable even if the free-tier backend is asleep or unreachable.
 
 ---
 
@@ -112,7 +116,7 @@ python3 -m src.cli --json    # raw JSON
 ## Tests
 
 ```bash
-python3 -m pytest tests/ -v   # 13 unit tests, no LLM calls
+python3 -m pytest tests/ -v   # 92 unit/integration tests, no LLM calls — runs in CI on every push
 ```
 
 ## Deployment
