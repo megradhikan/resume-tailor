@@ -6,7 +6,7 @@ A multi-agent system that analyzes your resume against a job description and pro
 
 **The constraint that shapes everything else: nothing is invented.** Every rewrite, every cover letter sentence, every interview talking point has to be traceable back to something already on your resume. That's enforced by a deterministic grounding check that runs in code after the LLM output — not a prompt asking the model to behave. See [PRODUCT.md](PRODUCT.md) for the fuller design rationale (users, brand principles, anti-references).
 
-**Live:** [resume-tailor.vercel.app](https://resume-tailor.vercel.app) — the demo includes a **"See a sample"** button that loads a precomputed example with no backend call, so it's explorable even if the free-tier backend is asleep or unreachable.
+**Live:** [resume-tailor-mauve-omega.vercel.app](https://resume-tailor-mauve-omega.vercel.app) — the demo includes a **"See a sample"** button that loads a precomputed example with no backend call, so it's explorable even if the free-tier backend is asleep or unreachable.
 
 ---
 
